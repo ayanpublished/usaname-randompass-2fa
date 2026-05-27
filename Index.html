@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0f172a" />
+<title>Premium Utility Suite</title>
+<link rel="manifest" href="manifest.json" />
+<script src="https://cdn.jsdelivr.net/npm/otpauth/dist/otpauth.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif;}
+body{
+background:linear-gradient(135deg,#0f172a,#111827,#1e293b);
+color:#fff;
+min-height:100vh;
+padding:16px;
+display:flex;
+justify-content:center;
+}
+.main{width:100%;max-width:430px;display:flex;flex-direction:column;gap:18px;}
+.card{
+background:rgba(255,255,255,0.05);
+border:1px solid rgba(255,255,255,0.08);
+border-radius:24px;
+padding:22px;
+backdrop-filter:blur(12px);
+box-shadow:0 20px 50px rgba(0,0,0,.35);
+}
+h1,h2{text-align:center;margin-bottom:18px;}
+h1{font-size:28px;} h2{font-size:24px;}
+label{display:block;margin-bottom:8px;font-size:14px;opacity:.9;}
+textarea,select,input[type='number']{
+width:100%;padding:14px;border-radius:14px;
+border:1px solid rgba(255,255,255,.12);
+background:rgba(255,255,255,.08);
+color:white;font-size:15px;outline:none;margin-bottom:14px;
+}
+textarea{min-height:110px;resize:vertical;}
+select option{color:black;}
+.btn{
+width:100%;padding:14px;border:none;border-radius:14px;
+background:linear-gradient(90deg,#2563eb,#06b6d4);
+color:white;font-size:16px;font-weight:bold;cursor:pointer;
+}
+.result-box,.code{
+margin-top:14px;padding:18px;border-radius:16px;
+background:rgba(255,255,255,.07);
+text-align:center;font-weight:bold;
+display:flex;
+align-items:center;
+justify-content:center;
+word-break:break-word;
+cursor:pointer;
+}
+.code{font-size:40px;color:#22c55e;letter-spacing:4px;}
+.result-box{font-size:22px;min-height:70px;}
+.small-text,.timer,.footer,.copied-text,.error,.label{text-align:center;font-size:13px;margin-top:8px;}
+.copied-text{opacity:0;transition:.3s;}
+.copied-text.show{opacity:1;}
+.error{color:#ef4444;}
+.footer{color:#94a3b8;}
+</style></head>
+<body><div class="main"><div class="card">
+<h2>2FA Generator</h2>
+<textarea id="secret" placeholder="Paste your 2FA Secret Key"></textarea>
+<div class="error" id="error"></div><div class="label">Tap code to copy</div>
+<div class="code" id="code">------</div>
+<div class="timer" id="timer">Waiting...</div>
+<div class="copied-text" id="copied">Code Copied</div>
+<div class="footer">Google Authenticator / Authy Compatible</div>
+<div class="footer"></div>
+</div><div class="card">
+<h1>Fake Name Generator</h1>
+<label>Country</label>
+<select id="country"></select><label>Gender</label> <select id="gender">
+<option value="male">Male</option>
+<option value="female">Female</option>
+</select><button class="btn" onclick="generateName()">Generate Name</button>
+<div class="result-box" id="nameResult" onclick="copyText('nameResult','nameCopied')">Click Generate</div>
+<div class="copied-text" id="nameCopied">Copied</div>
+<h2 style="font-size:20px;margin-top:22px;">Random Password Generator</h2>
+<button class="btn" onclick="generatePassword()">Generate Password</button>
+<div class="result-box" id="passwordResult" onclick="copyText('passwordResult','passwordCopied')">Password will appear here</div>
+<div class="copied-text" id="passwordCopied">Copied</div>
+</div></div><script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+let totp;
+let interval;
+
+const secretInput = document.getElementById('secret');
+const codeEl = document.getElementById('code');
+const timerEl = document.getElementById('timer');
+const errorEl = document.getElementById('error');
+const copiedEl = document.getElementById('copied');
+
+secretInput.addEventListener('click', function () {
+  this.select();
+});
+
+secretInput.addEventListener('input', function () {
+  const secret = this.value.trim().replace(/\s+/g, '').toUpperCase();
+
+  if (!secret) {
+    codeEl.innerText = '------';
+    timerEl.innerText = 'Waiting...';
+    errorEl.innerText = '';
+    clearInterval(interval);
+    return;
+  }
+
+  try {
+    totp = new OTPAuth.TOTP({
+      issuer: 'Custom',
+      label: '2FA',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret)
+    });
+
+    errorEl.innerText = '';
+    updateCode();
+    clearInterval(interval);
+    interval = setInterval(updateCode, 1000);
+  } catch (e) {
+    clearInterval(interval);
+    codeEl.innerText = '------';
+    timerEl.innerText = 'Waiting...';
+    errorEl.innerText = 'Invalid Secret Key';
+  }
+});
+
+function updateCode() {
+  if (!totp) return;
+  const code = totp.generate();
+  const remaining = 30 - Math.floor(Date.now() / 1000) % 30;
+  codeEl.innerText = code;
+  timerEl.innerText = 'Refreshes in ' + remaining + 's';
+}
+
+codeEl.addEventListener('click', async function () {
+  const code = codeEl.innerText;
+  if (code === '------') return;
+
+  await navigator.clipboard.writeText(code);
+  copiedEl.classList.add('show');
+  setTimeout(() => copiedEl.classList.remove('show'), 1500);
+});
+
+const namesDatabase = {
+  "United States": {
+    male:["Liam Carter","Noah Bennett","Ethan Parker","Mason Brooks","Lucas Walker","Logan Cooper","Elijah Reed","James Foster","Benjamin Hayes","Alexander Scott","Henry Collins","Sebastian Morgan","Daniel Turner","Matthew Ward","Jack Richardson","Owen Hughes","Wyatt Bailey","Levi Simmons","Julian Ross","Hudson Price","Carter Evans","Grayson Howard","Asher Powell","Leo Jenkins","Ezra Bryant","Lincoln Bell","Dylan Sanders","Caleb Watson","Nathan Gray","Ryan Coleman","Adrian Brooks","Connor Perry","Xavier Butler","Dominic Kelly","Miles Peterson","Zachary Stewart","Jason Murphy","Brandon Hall","Christian Green","Tyler Adams","Aaron Baker","Jordan Carter","Blake Phillips","Austin Long","Hunter Fisher","Evan Cooper","Gavin Foster","Chase Morgan","Tristan Bennett","Parker Scott","Nolan Reed","Colton Hayes","Beau Collins","Kingston Walker","Jasper Ward","Damian Turner","Ashton Richardson","Ryder Hughes","Micah Bailey","River Simmons","Finn Ross","Joel Price","Marcus Evans","Grant Howard","Kevin Powell","Patrick Jenkins","Dean Bryant","Justin Bell","Shane Sanders","Trevor Watson","Cody Gray","Eric Coleman","Simon Brooks","Preston Perry","Tate Butler","Camden Kelly","Zane Peterson","Reid Stewart","Max Murphy","Dawson Hall","Bennett Green","Holden Adams","Kaden Baker","Jude Carter","Emerson Phillips","Knox Long","Phoenix Fisher","Atlas Cooper","Nico Foster","Theo Morgan","Archer Bennett","Elliot Scott","Wesley Reed","Brooks Hayes","Griffin Collins","Sawyer Walker","Colt Ward","Rhett Turner","Gavin Richardson","Jaxon Hughes"],
+    female:["Olivia Carter","Emma Bennett","Charlotte Parker","Amelia Brooks","Sophia Walker","Isabella Cooper","Ava Reed","Mia Foster","Evelyn Hayes","Harper Scott","Luna Collins","Camila Morgan","Gianna Turner","Elizabeth Ward","Eleanor Richardson","Ella Hughes","Abigail Bailey","Sofia Simmons","Avery Ross","Scarlett Price","Emily Evans","Aria Howard","Penelope Powell","Chloe Jenkins","Layla Bryant","Mila Bell","Nora Sanders","Hazel Watson","Lily Gray","Aurora Coleman","Violet Brooks","Nova Perry","Hannah Butler","Zoey Kelly","Stella Peterson","Lucy Stewart","Natalie Murphy","Leah Hall","Savannah Green","Brooklyn Adams","Bella Baker","Claire Carter","Skylar Phillips","Paisley Long","Genesis Fisher","Naomi Cooper","Eliana Foster","Sarah Morgan","Allison Bennett","Madelyn Scott","Autumn Reed","Kennedy Hayes","Serenity Collins","Willow Walker","Ivy Ward","Delilah Turner","Piper Richardson","Josephine Hughes","Quinn Bailey","Ruby Simmons","Alice Ross","Cora Price","Madeline Evans","Eva Howard","Jasmine Powell","Ariana Jenkins","Athena Bryant","Eden Bell","Summer Sanders","Valerie Watson","Reagan Gray","Taylor Coleman","Sienna Brooks","Melody Perry","Daniela Butler","Jade Kelly","Faith Peterson","Brooke Stewart","Kylie Murphy","Paige Hall","Trinity Green","Julia Adams","Morgan Baker","Ariel Carter","Remi Phillips","Harmony Long","Presley Fisher","Teagan Cooper","Blakely Foster","Selena Morgan","Rowan Bennett","Lola Scott","Hayden Reed","Wren Hayes","Tessa Collins","Sage Walker","Zara Ward","Phoebe Turner","Brielle Richardson","Angela Hughes"]
+  }
+};
+
+const countrySelect = document.getElementById('country');
+Object.keys(namesDatabase).forEach(country => {
+  const option = document.createElement('option');
+  option.value = country;
+  option.textContent = country;
+  countrySelect.appendChild(option);
+});
+
+function generateName() {
+  const gender = document.getElementById('gender').value;
+  const list = namesDatabase['United States'][gender];
+  document.getElementById('nameResult').innerText = list[Math.floor(Math.random() * list.length)];
+}
+
+// PASSWORD GENERATOR - FIXED 16 DIGITS (Uppercase + Lowercase Random) + "@@##" at the end
+// Removed Uppercase/Lowercase select options completely as requested.
+// Generates 16 random characters using both uppercase and lowercase letters (A-Z, a-z)
+// then appends "@@##" suffix. Total password length = 20 characters.
+function generatePassword() {
+  const upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowerChars = 'abcdefghijklmnopqrstuvwxyz';
+  const allLetters = upperChars + lowerChars;
+  
+  // Generate exactly 16 random letters (mix of uppercase and lowercase)
+  let lettersPart = '';
+  for (let i = 0; i < 16; i++) {
+    const randomIndex = Math.floor(Math.random() * allLetters.length);
+    lettersPart += allLetters[randomIndex];
+  }
+  
+  // Append fixed suffix "@@##"
+  const finalPassword = lettersPart + '@@##';
+  
+  // Display the result
+  const passwordResultDiv = document.getElementById('passwordResult');
+  passwordResultDiv.innerText = finalPassword;
+}
+
+// Enhanced copy function with fallback for clipboard (fix copy issue)
+function copyText(targetId, messageId) {
+  const targetElement = document.getElementById(targetId);
+  let textToCopy = targetElement.innerText;
+  
+  // Validation: don't copy placeholder texts or invalid values
+  if (!textToCopy || 
+      textToCopy === 'Click Generate' || 
+      textToCopy === 'Password will appear here' || 
+      textToCopy === 'Select at least one option' ||
+      textToCopy === '------') {
+    return;
+  }
+  
+  // Modern clipboard API with fallback for older browsers
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showCopyMessage(messageId);
+    }).catch(err => {
+      fallbackCopy(textToCopy, messageId);
+    });
+  } else {
+    fallbackCopy(textToCopy, messageId);
+  }
+}
+
+function fallbackCopy(text, messageId) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+  showCopyMessage(messageId);
+}
+
+function showCopyMessage(messageId) {
+  const msg = document.getElementById(messageId);
+  if (msg) {
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 1500);
+  }
+}
+</script></body>
+</html>
